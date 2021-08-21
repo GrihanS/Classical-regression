@@ -1,0 +1,413 @@
+---
+title: "Regression model"
+author: "Stelmashenko Gregory"
+date: "13 May 2021"
+output:
+  html_document: default
+---
+```{r, echo = FALSE}
+pacman::p_load(dplyr, psych, lmtest, ggplot2, memisc, car, MASS, sandwich, GGally, patchwork, moments, MASS, car)
+```
+
+```{r, echo = FALSE}
+f = read.csv('/Users/grodska5mail.ru/Desktop/Regression model/Final 1.3.csv')
+```
+
+# *Визуализация 9ти графиков с зависимой переменной y = GDPPC / Deflator*
+```{r, echo = FALSE}
+p1 = ggplot(f[which(f$EDUPER > 0),], aes(EDUPER, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p2 = ggplot(f[which(f$TAXPER > 0),], aes(TAXPER, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p3 = ggplot(f[which(f$SPER > 0),], aes(SPER, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p4 = ggplot(f[which(f$IPER > 0),], aes(IPER, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p5 = ggplot(f[which(f$ACPCHNGPER > 0),], aes(ACPCHNGPER, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p9 = ggplot(f[which(f$UR > 0),], aes(UR, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p10 = ggplot(f[which(f$PG > 0),], aes(PG, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p11 = ggplot(f[which(f$PPW > 0),], aes(PPW, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p12 = ggplot(f[which(f$GOVEXP > 0),], aes(GOVEXP / Deflator, GDPPC / Deflator))+geom_point(size = 0.3, col = 'blue3')
+p1+p2+p3+p4+p5+p9+p10+p11+p12
+```
+
+## *Небольшой блок обзор подгрупп*
+```{r, echo = FALSE}
+describe(f$SPER)
+
+for (i in 1:95){ #делим группу стран по нормам сбережения 
+  if (f$SPER[i] > 21.31){ #разрезая ровно по медиане
+    f$SPER10[i] = 1
+  }
+  else {
+    f$SPER10[i] = 0
+    }
+}
+```
+
+
+```{r, echo = FALSE}
+
+d1 = ggplot(f, aes(IPER, log(GDPPC / Deflator), col = SPER10))+
+  geom_point()
+d2 = ggplot(f, aes(TAXPER, log(GDPPC / Deflator), col = SPER10))+
+  geom_point()
+d3 = ggplot(f, aes(EDUPER, log(GDPPC / Deflator), col = SPER10))+
+  geom_point()
+d4 = ggplot(f, aes(ACPCHNGPER, log(GDPPC / Deflator), col = SPER10))+geom_point()
+d1+d2+d3+d4
+```
+
+# *Визуализация зависимостей ln(y) от 9ти переменных*
+```{r, echo = FALSE}
+p11 = ggplot(f[which(f$EDUPER > 0),], aes(EDUPER, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p22 = ggplot(f[which(f$TAXPER > 0),], aes(TAXPER, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p33 = ggplot(f[which(f$SPER > 0),], aes(SPER, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p44 = ggplot(f[which(f$IPER > 0),], aes(IPER, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p55 = ggplot(f[which(f$ACPCHNGPER > 0),], aes(ACPCHNGPER, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p99 = ggplot(f[which(f$UR > 0),], aes(UR, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p100 = ggplot(f[which(f$PG > 0),], aes(PG, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p110 = ggplot(f[which(f$PPW > 0),], aes(PPW, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+p120 = ggplot(f[which(f$GOVEXP > 0),], aes(GOVEXP / Deflator, log(GDPPC / Deflator)))+geom_point(size = 0.3, col = 'blue3')
+
+p11+p22+p33+p44+p55+p99+p100+p110+p120
+```
+
+# *Строим возможные модели, но с зависимой переменной y = GDPPC /Deflator.*
+## *Ниже приведены некоторые из них.*
+```{r, echo = FALSE}
+f$TAXPER[f$TAXPER == 0 ] = mean(f$TAXPER)
+f$EDUPER[f$EDUPER == 0 ] = mean(f$EDUPER)
+f$IPER[f$IPER == 0] = mean(f$IPER)
+#добавляем средние значения, вместо нулей, чтобы убрать ошибку в log lm, 
+m0 = lm(data = f, GDPPC/Deflator~1+SPER+I(SPER**2)+TAXPER+(TAXPER)**2+EDUPER+I(EDUPER**2))
+
+m1 = lm(data = f, GDPPC / Deflator ~1+SPER+I(SPER**2)+TAXPER+(TAXPER)**2+EDUPER+I(EDUPER**2)+IPER+I(IPER**2)) 
+#без инфляции, неправильная модель
+m2 = lm(data = f, GDPPC / Deflator~1+SPER+I(SPER**2)+TAXPER+I((TAXPER)**2)+EDUPER+I(EDUPER**2)+
+          IPER+I(IPER**2)+I(ACPCHNGPER**(-1)))
+#с инфляцией, неправильная
+
+m3 = lm(data = f, GDPPC / Deflator~1+SPER+I(SPER**2)+I(log(TAXPER))+EDUPER+I(EDUPER**2)+
+          IPER+I(IPER**2)+I(ACPCHNGPER**(-1)))
+#плохая модель
+
+m4 = lm(data = f, GDPPC / Deflator~1+SPER+I(SPER**2)+log(TAXPER)+EDUPER+I(EDUPER**2)+
+          IPER+I(IPER**2)+I(ACPCHNGPER**(-1))+log(GOVEXP))
+
+#summary(m4)
+mtable(m1, m2, m3, m4)
+```
+### **Краткий вывод: модели вида y = (GDPPC /Deflator) скорее всего являются несостоятельными. Например об этом говорят графики "прогнозы-остатки", приводятся ниже** 
+
+```{r, echo = FALSE}
+par(mfrow = c(2, 3))
+plot(m0$fitted.values, studres(m0), xlab = 'fitted values', ylab = 'Student res', pch = 20, col = 'blue3',
+     main = 'm0 model')
+abline(0,0, col = 'red2')
+plot(m1$fitted.values, studres(m1), xlab = 'fitted values', ylab = 'Student res', pch = 20, col = 'blue3',
+     main = 'm1 model')
+abline(0,0, col = 'red2')
+plot(m2$fitted.values, studres(m2), xlab = 'fitted values', ylab = 'Student res', pch = 20, col = 'blue3',
+     main = 'm2 model')
+abline(0,0, col = 'red2')
+plot(m3$fitted.values, studres(m3), xlab = 'fitted values', ylab = 'Student res', pch = 20, col = 'blue3',
+     main = 'm3 model')
+abline(0,0, col = 'red2')
+plot(m4$fitted.values, studres(m4), xlab = 'fitted values', ylab = 'Student res', pch = 20, col = 'blue3',
+     main = 'm4 model')
+abline(0,0, col = 'red2')
+```
+
+# *Теперь строим модели, но с зависимой переменной y = ln(GDPPC / Deflator)* 
+```{r, echo = FALSE}
+mm1 = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+log(TAXPER)+I(EDUPER**(-1))
+        +I(IPER**(-1))+I(ACPCHNGPER**(-1))) #ln(y)
+#модель имеет потенц гетероск, но остатки распределены равномерно относительно нуля, R^2 = 0.38; скорее всего есть гет-ть, reset p-value очень мал
+
+mm2 = lm(data = f, log(GDPPC / Deflator)~1+I(sin(SPER))+log(TAXPER)+I(EDUPER**(-1))
+        +I(IPER**(-1))+I(ACPCHNGPER**(-1)))
+#те же проблемы, что и в m3, но R^2 сильно упал, нормальности почти нет, но
+#вроде нет гет-ти, Reset тест прошел
+mm3 = lm(data = f, log(GDPPC / Deflator)~1+I(SPER**2)+log(TAXPER)+I(EDUPER**(-1))
+        +I(IPER**(2))+I(ACPCHNGPER**(-1)))
+#проблемы спецификации, гетероск
+mm6 = lm(data = f, GDPPC~1+I(SPER**2)+log(TAXPER)+I(EDUPER**(-1))
+        +I(IPER**(2))+I(ACPCHNGPER**(2)))
+#некорректная модель
+
+mm6.1 = lm(data = f, GDPPC~1+I(SPER**2)+log(TAXPER)+I(EDUPER**(-1))
+        +I(IPER**(2))+I(ACPCHNGPER**(2))+SPER10)
+#некорректная модель
+
+mm7  = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+I(EDUPER**(-1))+I(IPER**(-1))+ACPCHNGPER)
+#вроде как наиболее корректная модель, малозаметна гетер + R^2 = 0.47,
+#остатки нормально распределены, но Reset p = 0.011
+mm7.3  = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+I(EDUPER**(-1))+I(IPER**(-1))+ACPCHNGPER+SPER10)
+
+
+#m8 = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(Taxes / Deflator)+I((Taxes / Deflator)**2)+I(log(EDUEXP / Deflator))+ACPCHNGPER+log(I))
+#незначимые налоги и много др переменных незнач, но R^2 высок, вроде остатки хорошо распр, остатки норм распр 
+#по графикам присутств гетероск, хотя тест не выявил
+#возможно, присутствует мультикол т к F тест прошел а много по t незнач
+
+mm9  = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+EDUPER+
+            I(IPER**(-1))+I(ACPCHNGPER**(-1)))
+#R= 0.39, почти идеально распре остатки, но есть некоторые проблемы с норм, нет гетероск
+mm9.1 = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+EDUPER+
+            I(IPER**(-1))+I(ACPCHNGPER**(-1))+SPER10)
+
+m10 = lm(data = f, I(GDPPC / Deflator)~1+I(SPER**2)+I(IPER**2)+
+           I(TAXPER**2)+I(EDUPER**2)+I(1/ACPCHNGPER))
+#плохая модель
+m11 = lm(data = f, I(GDPPC / Deflator)~1+I(SPER**2)+I(IPER**2)+
+           I(TAXPER**2)+I(EDUPER**2)+I(1/ACPCHNGPER))
+#некорреткная модель
+
+mm7.2  = lm(data = f, log(GDPPC / Deflator)~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+EDUPER+
+            IPER+SPER10+I(ACPCHNGPER**(-1)))
+#Отличие от m77 в дамми; R^2 = 0.576,с нормальностью плоховато
+#скорее всего нет гетер-ти, но очень вероятен пропуск переменной
+
+#summary(mm7) #модели вида: mm9,mm9.1 mm7, mm7.3 наиболее неплохие
+mtable(mm7, mm7.2)
+```
+### **Анализ показал, что скорее всего пропущена какая-та переменная, даже наилучшие модели не уверенно проходят RESET тест. Можно добавить переменную PPW, однако там много пропусков и резульатты могут быть не репрезентативны.**
+
+### *Далее смотрим график остатки-прогнозы по каждой модели*
+
+```{r, echo = FALSE}
+#par(mfrow = c(2, 2))
+#plot(mm9$fitted.values, mm9$residuals)
+#abline(0,0, col = 'red2')
+#plot(mm9.1$fitted.values, mm9.1$residuals)
+#abline(0,0, col = 'red2')
+
+par(mfrow = c(2, 2))
+plot(mm7$fitted.values, studres(mm7), xlab = 'fitted values', ylab = 'Student res', main = 'Модель 6', pch = 20, col = 'blue3')
+abline(0,0, col = 'red2')
+plot(mm7.3$fitted.values, studres(mm7.3), xlab = 'fitted values', ylab = 'Student res', main = 'Модель 7', pch = 20, col = 'blue3')
+abline(0,0, col = 'red2')
+plot(mm9$fitted.values, studres(mm9), xlab = 'fitted values', ylab = 'Student res', main = 'Модель 4', pch = 20, col = 'blue3')
+abline(0,0, col = 'red2')
+plot(mm9.1$fitted.values, studres(mm9.1), xlab = 'fitted values', ylab = 'Student res', main = 'Модель 5', pch = 20, col = 'blue3')
+abline(0,0, col = 'red2')
+```
+
+### *Смотрим нормальность остатков с помощью  JB теста, гистограммы и qq plot. Ниже представлены p-value по JB тесту.*
+```{r, echo = FALSE}
+mm7JB = jarque.test(mm7$residuals)
+mm7.3JB = jarque.test(mm7.3$residuals)
+mm9JB = jarque.test(mm9$residuals)
+mm9.1JB = jarque.test(mm9.1$residuals)
+JBt = c(mm7JB$p.value, mm7.3JB$p.value, mm9JB$p.value, 
+                   mm9.1JB$p.value)
+names(JBt)[1] = "mm7"
+names(JBt)[2] = "mm7.3"
+names(JBt)[3] = "mm9"
+names(JBt)[4] = "mm9.1"
+JBt
+```
+```{r, echo = FALSE}
+par(mfrow = c(1, 1))
+qqnorm(mm7$residuals)
+qqline(mm7$residuals, distribution = qnorm) #идет вместе с 
+#qqnorm, т е рисует на нем!!!
+hist(mm7$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 6')
+
+
+qqnorm(mm9.1$residuals, main = 'Модель 5')
+qqline(mm9.1$residuals, distribution = qnorm) #идет вместе с 
+#qqnorm, т е рисует на нем!!!
+hist(mm7.3$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 7')
+
+qqnorm(mm7.2$residuals)
+qqline(mm7.2$residuals, distribution = qnorm) #идет вместе с 
+#qqnorm, т е рисует на нем!!!
+hist(mm7.2$residuals, col = 'blue', xlab = 'residuals', main = 'Histogram')
+
+qqnorm(mm9$residuals)
+qqline(mm9$residuals, distribution = qnorm) #идет вместе с 
+#qqnorm, т е рисует на нем!!!
+hist(mm7.2$residuals, col = 'blue', xlab = 'residuals', main = 'Histogram')
+
+
+par(mfrow = c(2, 2))
+hist(mm7$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 6')
+hist(mm7.3$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 7')
+hist(mm9$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 4')
+hist(mm9.1$residuals, col = 'blue', xlab = 'residuals', main = 'Модель 5')
+
+```
+
+### *Теперь смотрим наличие гетероскедастичности.*
+
+```{r, echo=FALSE}
+#g1 = plot(na.omit(f$EDUPER), m8$residuals,)
+#g1 = plot(mm2$model$SPER, mm2$residuals)
+#g2 = plot(na.omit(mm7$model$`log(GDPPC/Deflator)`), mm7$residuals)
+par(mfrow = c(2, 3))
+g3 = plot(na.omit(mm9.1$model$SPER), mm9.1$residuals, xlab = 'SPER', ylab = 'Res')
+g4 = plot(na.omit(mm9.1$model$`I(SPER^2)`), mm9.1$residuals, xlab = 'SPER^2', ylab = 'Res')
+g5 = plot(na.omit(mm9.1$model$`I(sqrt(TAXPER))`), mm9.1$residuals, xlab = 'TAXPEr^0.5', ylab = 'Res')
+#g6 = plot(na.omit(mm9.1$model$EDUPER), mm9$residuals)
+g7 = plot(na.omit(mm9.1$model$EDUPER), mm9.1$residuals, xlab = 'EDUPER', ylab = 'Res')
+          
+#g8 = plot(na.omit(m1$model$), m1$residuals)
+g9 = plot(na.omit(mm9.1$model$`I(IPER^(-1))`), mm9.1$residuals, xlab = 'IPER^(-1)', ylab = 'Res')
+g5 = plot(na.omit(mm9.1$model$`I(ACPCHNGPER^(-1))`), mm9.1$residuals, xlab = 'ACPCHNGER^(-1)', ylab = 'Res')
+
+g3+g4+g5+g7+g9+g5 #library patchwork, работает только для ggplot2
+
+```
+
+### *Реализуем тест Голдфельда Квандта. Здесь представлены не все данные.*
+```{r, echo = FALSE}
+gqtest(data = f, mm7, order.by = ~mm7$model$`I(IPER^(-1))`, fraction = 0.2)
+gqtest(data = f, mm9, order.by = ~mm9$model$`I(ACPCHNGPER^(-1))`, fraction = 0.2)
+gqtest(data = f, mm9, order.by = ~mm9$model$EDUPER, fraction = 0.2)
+```
+
+### *Посмотрим результаты RESET тест по каждой модели. Ниже представлены значения p-value.*
+```{r, echo = FALSE}
+mm7R = resettest(mm7)
+mm7.3R = resettest(mm7.3)
+mm9R = resettest(mm9)
+mm9.1R = resettest(mm9.1)
+RT = c(mm7R$p.value, mm7.3R$p.value, mm9R$p.value, 
+                   mm9.1R$p.value)
+names(RT)[1] = "mm7"
+names(RT)[2] = "mm7.3"
+names(RT)[3] = "mm9"
+names(RT)[4] = "mm9.1"
+RT 
+```
+
+### *Теперь посмотрим на ковариационную матрицу каждой модели, дисперсии ошибок в форме Ньюи-Вэста.*
+```{r, echo = FALSE}
+HAC1 = vcovHAC(mm9.1)
+#C1 = vcov(mm9.1)
+print('модель 5')
+data.frame(HAC1)
+
+HAC2 = vcovHAC(mm7)
+#C2 = vcov(mm7)
+print('модель 6')
+data.frame(HAC2)
+
+HAC3 = vcovHAC(mm7.3)
+#C3 = vcov(mm7.3)
+print('модель 7')
+data.frame(HAC3)
+
+HAC4 = vcovHAC(mm9)
+#C4 = vcov(mm9)
+print('модель 4')
+data.frame(HAC4)
+```
+
+### *Анализ мультиколлинеарности.*
+```{r, echo = FALSE}
+
+cc1 = data.frame(mm9$model$SPER, mm9$model$`I(SPER^2)`, mm9$model$`I(sqrt(TAXPER))`,
+                mm9$model$EDUPER, mm9$model$`I(IPER^(-1))`, mm9$model$`I(ACPCHNGPER^(-1))`)
+colnames(cc1) = c('SPER', 'SPER^2', 'TAXPER^0.5', 'EDUPER', 'IPER^-1', 'ACPCHNGPER^-1')
+c11 = ggcorr(cc1, label = T, digits = 6)
+
+cc2 = data.frame(mm9.1$model$SPER, mm9.1$model$`I(SPER^2)`, mm9.1$model$`I(sqrt(TAXPER))`,
+                mm9.1$model$EDUPER, mm9.1$model$`I(IPER^(-1))`, mm9.1$model$`I(ACPCHNGPER^(-1))`, mm9.1$model$SPER10)
+colnames(cc2) = c('SPER', 'SPER^2', 'TAXPER^0.5', 'EDUPER', 'IPER^-1', 'ACPCHNGPER^-1', 'SPER10')
+c12 = ggcorr(cc2, label = T, digits = 2, )
+
+
+
+cc3 = data.frame(mm7$model$SPER, mm7$model$`I(SPER^2)`, mm7$model$`I(sqrt(TAXPER))`,
+                mm7$model$`I(EDUPER^(-1))`, mm7$model$`I(IPER^(-1))`, mm7$model$ACPCHNGPER)
+colnames(cc3) = c('SPER', 'SPER^2', 'TAXPER^0.5', 'EDUPER^-1', 'IPER^-1', 'ACPCHNGPER')
+c13 = ggcorr(cc3, label = T, digits = 2)
+
+cc4 = data.frame(mm7.3$model$SPER, mm7.3$model$`I(SPER^2)`, mm7.3$model$`I(sqrt(TAXPER))`,
+                mm7.3$model$`I(EDUPER^(-1))`, mm7.3$model$`I(IPER^(-1))`, mm7.3$model$ACPCHNGPER, mm7.3$model$SPER10)
+colnames(cc4) = c('SPER', 'SPER^2', 'TAXPER^0.5', 'EDUPER^-1', 'IPER^-1', 'ACPCHNGPER', 'SPER10')
+c14 = ggcorr(cc4, label = T, digits = 2)
+
+c11+c12+c13+c14
+```
+
+### *Коэффициент VIF.*
+```{r, echo = FALSE}
+model6 = vif(mm7)
+model7 = vif(mm7.3)
+model4 = vif(mm9)
+model5 = vif(mm9.1)
+#data.frame(v1, v2, v3, v4)
+data.frame(model6, model4)
+data.frame(model7, model5)
+```
+
+### *Анализ числа обусловленности.*
+```{r, echo = FALSE}
+X1 = model.matrix(data = f, ~SPER+I(SPER**2)+I(sqrt(TAXPER))+EDUPER+
+            I(IPER**(-1))+I(ACPCHNGPER**(-1)))
+XX1 = t(X1) %*% X1
+eigen1 = eigen(XX1)
+eigen1$values
+CI1 = sqrt(max(eigen1$values) / (min(eigen1$values)))
+print('модель 4:')
+CI1
+
+X3 = model.matrix(data = f, ~SPER+I(SPER**2)+I(sqrt(TAXPER))+EDUPER+
+            I(IPER**(-1))+I(ACPCHNGPER**(-1))+SPER10)
+XX3 = t(X3) %*% X3
+eigen3 = eigen(XX3)
+eigen3$values
+CI3 = sqrt(max(eigen3$values) / (min(eigen3$values)))
+print('модель 5:')
+CI3
+
+X2 = model.matrix(data = f,~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+I(EDUPER**(-1))+I(IPER**(-1))+
+                   ACPCHNGPER)
+XX2 = t(X2) %*% X2
+eigen2 = eigen(XX2)
+eigen2$values
+CI2 = sqrt(max(eigen2$values) / (min(eigen2$values)))
+print('модель 6:')
+CI2 
+
+X4 = model.matrix(data = f,~1+SPER+I(SPER**2)+I(sqrt(TAXPER))+I(EDUPER**(-1))+I(IPER**(-1))+
+                   ACPCHNGPER+SPER10)
+XX4 = t(X4) %*% X4
+eigen4 = eigen(XX4)
+eigen4$values
+CI4 = sqrt(max(eigen4$values) / (min(eigen4$values)))
+print('модель 7:')
+CI4
+```
+
+### *Анализ моделей по BIC и AIC.*
+```{r, echo = FALSE}
+data.frame(BIC(mm7), BIC(mm7.3), BIC(mm9), BIC(mm9.1))
+data.frame(AIC(mm7), AIC(mm7.3), AIC(mm9), AIC(mm9.1))
+```
+
+### **Итоговая сводка по выбранным моделям.**
+```{r, echo=FALSE}
+mtable(mm7, mm7.2, mm9, mm9.1)
+```
+
+### Анализ зависимости ВВП на душу (PPC) от доли налогов в ВВП.
+### Ниже представлены основные характеристики PPC и графикт.
+```{r, echo = FALSE}
+f$PPC = (f$GDPPC / f$Deflator)
+describe(f$PPC)
+
+for (i in 1:78){
+  if (f$PPC[i] > 42.29){
+    f$PPC10[i] = 1
+  }
+  else {
+    f$PPC10[i] = 0
+    }
+}
+ggplot(f[which(f$TAXPER > 0),], aes(TAXPER, PPC, col = PPC10))+geom_point(size = 1)
+
+d1 = ggplot(f, aes(IPER, log(GDPPC / Deflator), col = SPER10))+
+  geom_point(alpha = 0.1)
+```
+
